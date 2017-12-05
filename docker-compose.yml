@@ -5,8 +5,9 @@ volumes:
     grafana_data: {}
 
 networks:
-  front-tier:
-  back-tier:
+  smartcloudstorage_monitoring:
+    external: true
+  default:
 
 services:
 
@@ -21,38 +22,13 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
     ports:
-      - 9090:9090
+      - 9091:9090
     links:
-      - cadvisor:cadvisor
       - alertmanager:alertmanager
-    depends_on:
-      - cadvisor
-    networks:
-      - back-tier
     restart: always
-    deploy:
-      placement:
-        constraints:
-          - node.hostname == moby
-
-  node-exporter:
-    image: prom/node-exporter
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command: 
-      - '--path.procfs=/host/proc' 
-      - '--path.sysfs=/host/sys'
-      - --collector.filesystem.ignored-mount-points
-      - "^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)"
-    ports:
-      - 9100:9100
     networks:
-      - back-tier
-    restart: always
-    deploy:
-      mode: global
+      - default
+      - smartcloudstorage_monitoring
 
   alertmanager:
     image: prom/alertmanager
@@ -60,30 +36,10 @@ services:
       - 9093:9093
     volumes:
       - ./alertmanager/:/etc/alertmanager/
-    networks:
-      - back-tier
     restart: always
     command:
       - '-config.file=/etc/alertmanager/config.yml'
       - '-storage.path=/alertmanager'
-    deploy:
-      placement:
-        constraints:
-          - node.hostname == moby
-  cadvisor:
-    image: google/cadvisor
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:rw
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    ports:
-      - 8080:8080
-    networks:
-      - back-tier
-    restart: always
-    deploy:
-      mode: global
 
   grafana:
     image: grafana/grafana
@@ -95,6 +51,3 @@ services:
       - grafana_data:/var/lib/grafana
     env_file:
       - config.monitoring
-    networks:
-      - back-tier
-      - front-tier
